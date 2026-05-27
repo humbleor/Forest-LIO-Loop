@@ -1,0 +1,9 @@
+<launch>
+  <arg name="config_path" default="$(find forest_loop_detector)/config/loop_para.yaml"/>
+
+  <node pkg="forest_loop_detector" type="loop_detector_node" name="forest_loop_detector" output="screen">
+    <param name="config_path" value="$(arg config_path)"/>
+    <param name="cloud_topic" value="/cloud_registered"/>
+    <param name="odom_topic" value="/Odometry"/>
+  </node>
+</launch>
