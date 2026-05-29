@@ -42,6 +42,11 @@ typedef struct ConfigSetting {
 	double clusterHeight = 2.5;
   int centerSelection = 0;
 
+	// Trunk cluster merging (post-PCA dedup)
+	double trunk_merge_dist = 0.4;     // max horizontal distance between cluster centers (m)
+	double trunk_merge_z_overlap = 0.1; // min height overlap ratio to merge
+	double trunk_merge_max_z_gap = 3.0; // max Z gap between cluster ranges (m)
+
 } ConfigSetting;
 
 // structure for Cluster

@@ -14,11 +14,14 @@
 #include <queue>
 #include <condition_variable>
 #include <atomic>
+#include <iostream>
+#include <type_traits>
 
 #include "KeyframeManager.h"
 #include "utils/HashRegObj.h"
 #include "utils/Hlp.h"
 #include "gtsam_opti/gtsamOpti.h"
+#include <yaml-cpp/yaml.h>
 
 using PointCloudXYZI = pcl::PointCloud<pcl::PointXYZI>;
 
@@ -42,6 +45,40 @@ struct LoopDetectorConfig {
     double fitness_threshold = 0.3;
     double pgo_optimize_interval = 10.0;
 };
+
+static void LoadLoopDetectorConfigFromYaml(const std::string &file_path, LoopDetectorConfig &cfg)
+{
+    if (file_path.empty()) return;
+
+    YAML::Node yaml_node;
+    try {
+        yaml_node = YAML::LoadFile(file_path);
+    } catch (const std::exception &e) {
+        std::cerr << RED << "Failed to load YAML: " << file_path
+                  << " — " << e.what() << RESET << std::endl;
+        return;
+    }
+
+    auto load = [&](const std::string &key, auto &val) {
+        if (yaml_node[key]) {
+            val = yaml_node[key].as<std::remove_reference_t<decltype(val)>>(val);
+        }
+    };
+
+    load("cloud_topic", cfg.cloud_topic);
+    load("odom_topic", cfg.odom_topic);
+    load("keyframe_min_distance", cfg.keyframe_min_distance);
+    load("keyframe_min_angle", cfg.keyframe_min_angle);
+    load("keyframe_min_time", cfg.keyframe_min_time);
+    load("accumulation_window_sec", cfg.accumulation_window_sec);
+    load("voxel_size", cfg.voxel_size);
+    load("submap_window_size", cfg.submap_window_size);
+    load("submap_voxel_size", cfg.submap_voxel_size);
+    load("icp_corr_distance", cfg.icp_corr_distance);
+    load("icp_threshold", cfg.icp_threshold);
+    load("fitness_threshold", cfg.fitness_threshold);
+    load("pgo_optimize_interval", cfg.pgo_optimize_interval);
+}
 
 // ============================================================
 // Loop constraint storage
@@ -139,8 +176,10 @@ LoopDetectorNode::LoopDetectorNode(ros::NodeHandle &nh)
     nh.param<double>("pgo_optimize_interval", cfg_.pgo_optimize_interval, 10.0);
 
     // Load YAML config
-    if (!cfg_.config_path.empty())
+    if (!cfg_.config_path.empty()) {
+        LoadLoopDetectorConfigFromYaml(cfg_.config_path, cfg_);
         ReadParas(cfg_.config_path, config_setting_);
+    }
 
     // Initialize core components
     kf_manager_ = std::make_unique<KeyframeManager>(cfg_.keyframe_min_distance,

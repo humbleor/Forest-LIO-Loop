@@ -175,10 +175,6 @@ class PatchWorkpp {
   Eigen::MatrixX3f getCenters() { return toEigenCloud(centers_); }
   Eigen::MatrixX3f getNormals() { return toEigenCloud(normals_); }
 
-  // Query ground Z height at a given (x, y) using ring plane equation
-  // Returns NaN if point is outside valid range
-  double getGroundZ(double x, double y);
-
  private:
   // Every private member variable is written with the undescore("_") in its end.
 

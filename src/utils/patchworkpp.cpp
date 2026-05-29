@@ -338,44 +338,6 @@ void PatchWorkpp::estimateGround(Eigen::MatrixXf cloud_in) {
          << "\033[0m" << endl;
 }
 
-// Query ground Z height at given (x, y) using nearest ring's ground plane
-// Returns NaN if outside valid range or no ground was detected
-double PatchWorkpp::getGroundZ(double x, double y)
-{
-  auto centers = getCenters();
-  auto normals = getNormals();
-  if (centers.rows() == 0 || normals.rows() == 0)
-    return std::nan("");
-
-  double dist = std::sqrt(x * x + y * y);
-  if (dist < params_.min_range || dist > params_.max_range)
-    return std::nan("");
-
-  // Find the ring whose center is closest to (x, y)
-  double min_dist = 1e18;
-  int best_idx = 0;
-  for (int i = 0; i < centers.rows(); ++i)
-  {
-    double dx = centers(i, 0) - x;
-    double dy = centers(i, 1) - y;
-    double d = dx * dx + dy * dy;
-    if (d < min_dist) { min_dist = d; best_idx = i; }
-  }
-
-  // Plane equation: n·(p - c) = 0 → z = c_z - (n_x·(x-c_x) + n_y·(y-c_y)) / n_z
-  double nx = normals(best_idx, 0);
-  double ny = normals(best_idx, 1);
-  double nz = normals(best_idx, 2);
-  double cx = centers(best_idx, 0);
-  double cy = centers(best_idx, 1);
-  double cz = centers(best_idx, 2);
-
-  if (std::abs(nz) < 1e-6)
-    return std::nan(""); // degenerate plane
-
-  return cz - (nx * (x - cx) + ny * (y - cy)) / nz;
-}
-
 void PatchWorkpp::update_elevation_thr(void) {
   for (int i = 0; i < params_.num_rings_of_interest; i++) {
     if (update_elevation_[i].empty()) continue;

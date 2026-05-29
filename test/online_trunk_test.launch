@@ -1,0 +1,24 @@
+<launch>
+  <arg name="config_path" default="$(find forest_loop_detector)/config/loop_para.yaml"/>
+  <arg name="cloud_topic" default="/cloud_registered"/>
+  <arg name="odom_topic" default="/Odometry"/>
+  <arg name="frame_skip" default="1"/>
+  <arg name="print_center_limit" default="20"/>
+  <arg name="max_visualized_descriptors" default="500"/>
+  <arg name="descriptor_line_width" default="0.05"/>
+  <arg name="publish_debug_clouds" default="true"/>
+
+  <node pkg="forest_loop_detector"
+        type="online_trunk_test"
+        name="online_trunk_test"
+        output="screen">
+    <param name="config_path" value="$(arg config_path)"/>
+    <param name="cloud_topic" value="$(arg cloud_topic)"/>
+    <param name="odom_topic" value="$(arg odom_topic)"/>
+    <param name="frame_skip" value="$(arg frame_skip)"/>
+    <param name="print_center_limit" value="$(arg print_center_limit)"/>
+    <param name="max_visualized_descriptors" value="$(arg max_visualized_descriptors)"/>
+    <param name="descriptor_line_width" value="$(arg descriptor_line_width)"/>
+    <param name="publish_debug_clouds" value="$(arg publish_debug_clouds)"/>
+  </node>
+</launch>

@@ -11,3 +11,8 @@ Makefile
 # IDE
 .vscode/
 .idea/
+
+AGENTS.md
+CLAUDE.md
+
+loop_output.log

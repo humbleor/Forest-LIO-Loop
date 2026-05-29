@@ -1,4 +1,5 @@
 <launch>
+  <arg name="rviz" default="true" />
   <arg name="config_path" default="$(find forest_loop_detector)/config/loop_para.yaml"/>
 
   <node pkg="forest_loop_detector" type="loop_detector_node" name="forest_loop_detector" output="screen">
@@ -6,4 +7,8 @@
     <param name="cloud_topic" value="/cloud_registered"/>
     <param name="odom_topic" value="/Odometry"/>
   </node>
+
+  <group if="$(arg rviz)">
+    <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find forest_loop_detector)/rviz_cfg/loop_fastlio.rviz" />
+  </group>
 </launch>

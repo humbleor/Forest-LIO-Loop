@@ -1,11 +1,11 @@
 #include "utils/HashRegObj.h"
 #include "utils/Hlp.h"
 #include "utils/patchwork/patchworkpp.h"
+#include "utils/FEC.h"
 
 #include <omp.h>
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/voxel_grid.h>
-#include <pcl/segmentation/extract_clusters.h>
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/common/pca.h>
 
@@ -78,17 +78,7 @@ void euclidean_clustering(const pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud,
                           std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> &cluster_points,
                           double cluster_tolerance, int min_size, int max_size)
 {
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
-    tree->setInputCloud(cloud);
-
-    std::vector<pcl::PointIndices> cluster_indices;
-    pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-    ec.setClusterTolerance(cluster_tolerance);
-    ec.setMinClusterSize(min_size);
-    ec.setMaxClusterSize(max_size);
-    ec.setSearchMethod(tree);
-    ec.setInputCloud(cloud);
-    ec.extract(cluster_indices);
+    auto cluster_indices = FEC(cloud, min_size, cluster_tolerance, max_size);
 
     for (const auto &ci : cluster_indices)
     {
@@ -196,6 +186,145 @@ void pca_trunk_filter(const std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> &cl
             discarded_clusters.push_back(cluster_tmp);
         }
     }
+}
+
+// ============================================================
+// Trunk cluster merging — deduplicate over-segmented trunks
+// ============================================================
+// FEC + PCA can split a single tree trunk into multiple clusters
+// (due to occlusion, branches, or point density gaps). This step
+// merges clusters that are spatially close and have overlapping
+// Z ranges, indicating they likely belong to the same trunk.
+void merge_trunk_clusters(std::vector<Cluster> &trunk_clusters,
+                          std::vector<Cluster> &discarded_clusters,
+                          double max_horizontal_dist,
+                          double min_z_overlap_ratio,
+                          double max_z_gap)
+{
+    if (trunk_clusters.size() < 2) return;
+
+    int n = trunk_clusters.size();
+    std::vector<bool> merged(n, false);
+
+    for (int i = 0; i < n; ++i)
+    {
+        if (merged[i]) continue;
+
+        // Collect all clusters that should merge into cluster i
+        std::vector<int> group = {i};
+
+        for (int j = i + 1; j < n; ++j)
+        {
+            if (merged[j]) continue;
+
+            auto &ci = trunk_clusters[i];
+            auto &cj = trunk_clusters[j];
+
+            // Horizontal distance (XY plane)
+            double h_dist = std::sqrt(
+                std::pow(ci.center_[0] - cj.center_[0], 2) +
+                std::pow(ci.center_[1] - cj.center_[1], 2));
+
+            if (h_dist > max_horizontal_dist) continue;
+
+            // Z range overlap
+            double z_lo = std::max(ci.minZ, cj.minZ);
+            double z_hi = std::min(ci.maxZ, cj.maxZ);
+            double overlap = std::max(0.0, z_hi - z_lo);
+
+            double z_gap = std::max(0.0, std::max(ci.minZ, cj.minZ)
+                - std::min(ci.maxZ, cj.maxZ));
+
+            if (overlap < 0.01 && z_gap > max_z_gap) continue;
+
+            // Check overlap ratio relative to shorter cluster
+            double h_i = ci.maxZ - ci.minZ;
+            double h_j = cj.maxZ - cj.minZ;
+            double shorter_h = std::min(h_i, h_j);
+            double overlap_ratio = (shorter_h > 0.01) ? (overlap / shorter_h) : 0.0;
+
+            // Accept if: enough overlap OR small gap (partially adjacent segments)
+            if (overlap_ratio >= min_z_overlap_ratio || z_gap <= max_z_gap)
+            {
+                group.push_back(j);
+            }
+        }
+
+        // Merge if more than one cluster in the group
+        if (group.size() > 1)
+        {
+            // Combine point clouds
+            pcl::PointCloud<pcl::PointXYZ> combined_points;
+            double new_minZ = 1e10, new_maxZ = -1e10;
+
+            for (int idx : group)
+            {
+                combined_points += trunk_clusters[idx].points_;
+                new_minZ = std::min(new_minZ, trunk_clusters[idx].minZ);
+                new_maxZ = std::max(new_maxZ, trunk_clusters[idx].maxZ);
+            }
+            combined_points.width = combined_points.size();
+            combined_points.height = 1;
+            combined_points.is_dense = true;
+
+            // Re-compute centroid
+            Eigen::Vector4d centroid;
+            pcl::compute3DCentroid(combined_points, centroid);
+            Eigen::Vector3d new_center = centroid.head<3>();
+
+            // Re-compute covariance matrix
+            Eigen::Matrix3d new_cov = Eigen::Matrix3d::Zero();
+            for (const auto &pt : combined_points.points)
+            {
+                Eigen::Vector3d p(pt.x, pt.y, pt.z);
+                Eigen::Vector3d diff = p - new_center;
+                new_cov += diff * diff.transpose();
+            }
+            new_cov /= combined_points.size();
+
+            // Re-compute eigen decomposition
+            Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(new_cov);
+            Eigen::Vector3d new_evals = solver.eigenvalues();
+            Eigen::Matrix3d new_evecs = solver.eigenvectors();
+
+            double lambda1 = new_evals[2];
+            double lambda2 = new_evals[1];
+            Eigen::Vector3d new_axis1 = new_evecs.col(2);
+
+            // Update cluster i as the merged result
+            auto &dst = trunk_clusters[i];
+            dst.points_ = combined_points;
+            dst.center_ = new_center;
+            dst.normal_ = new_axis1;
+            dst.covariance_ = new_cov;
+            dst.eig_value_ = new_evals;
+            dst.minZ = new_minZ;
+            dst.maxZ = new_maxZ;
+            dst.linearity_ = (lambda1 - lambda2) / lambda1;
+            dst.p_center_.x = new_center[0];
+            dst.p_center_.y = new_center[1];
+            dst.p_center_.z = new_minZ;  // base of trunk
+            dst.p_center_.normal_x = new_axis1[0];
+            dst.p_center_.normal_y = new_axis1[1];
+            dst.p_center_.normal_z = new_axis1[2];
+            dst.p_center_.intensity = 1;
+            dst.root = new_minZ;
+
+            // Mark others as merged (skip them)
+            for (size_t gi = 1; gi < group.size(); ++gi)
+                merged[group[gi]] = true;
+        }
+    }
+
+    // Remove merged entries
+    std::vector<Cluster> compact;
+    compact.reserve(trunk_clusters.size());
+    for (int i = 0; i < n; ++i)
+        if (!merged[i]) compact.push_back(std::move(trunk_clusters[i]));
+    trunk_clusters = std::move(compact);
+
+    std::cout << "[MergeTrunk] " << n << " → " << trunk_clusters.size()
+              << " clusters after merging" << std::endl;
 }
 
 // ============================================================
@@ -308,20 +437,18 @@ void HashRegDescManager::GenTriDescs(const pcl::PointCloud<pcl::PointXYZI>::Ptr 
                      1.0 - config_setting_.upThres,  // convert: upThres was discard threshold
                      config_setting_.clusterHeight);
 
-    // 5b. Update trunk Z to ground level from PatchWork++.
+    // 5b. Merge over-segmented trunk clusters (FEC splits one tree into many)
+    merge_trunk_clusters(obj_clusters, discarded_clusters,
+                         config_setting_.trunk_merge_dist,
+                         config_setting_.trunk_merge_z_overlap,
+                         config_setting_.trunk_merge_max_z_gap);
+
+    // 5c. Keep trunk root Z from the trunk cluster itself.
     // Input cloud is already in world frame (subscribed from /cloud_registered),
-    // so cluster centers are already in world coordinates — no transform needed.
+    // and pca_trunk_filter() sets p_center_.z to the cluster minZ.
     for (auto &cluster : obj_clusters)
     {
-        if (cluster.is_line_)  // trunk cluster
-        {
-            double ground_z = patchworkpp_.getGroundZ(cluster.center_[0], cluster.center_[1]);
-            if (!std::isnan(ground_z))
-            {
-                cluster.root = ground_z;
-                cluster.p_center_.z = ground_z;  // tree root at ground level (world frame)
-            }
-        }
+        cluster.root = cluster.p_center_.z;
         // Sync center_ with p_center_ coordinates (already world frame)
         cluster.center_ = Eigen::Vector3d(
             cluster.p_center_.x, cluster.p_center_.y, cluster.p_center_.z);
@@ -351,13 +478,15 @@ void HashRegDescManager::GenTriDescs(const pcl::PointCloud<pcl::PointXYZI>::Ptr 
 
     std::cout << GREEN << "[GenTriDescs] KF#" << curr_frame_info.frame_id_
               << ": input=" << input_cloud->size()
-              << " → voxel=" << voxel_out->size()
-              << " → sor=" << sor_out->size()
-              << " → clusters=" << cluster_points.size()
-              << " → trunks=" << obj_clusters.size()
-              << " → tridesc=" << curr_frame_info.desc_.size()
+              << " -> voxel=" << voxel_out->size()
+              << " -> sor=" << sor_out->size()
+              << " -> clusters=" << cluster_points.size()
+              << " -> trunks(before_merge)=" << cluster_points.size()
+              << " -> trunks(after_merge)=" << obj_clusters.size()
+              << " -> tridesc=" << curr_frame_info.desc_.size()
               << " | Time: preprocess=" << time_inc(t1, t0) << "ms"
               << ", PCA=" << time_inc(t2, t1) << "ms"
+              << ", merge=" << time_inc(t3, t2) << "ms"
               << ", build_stdesc=" << time_inc(t3, t2) << "ms" << RESET << std::endl;
 }
 

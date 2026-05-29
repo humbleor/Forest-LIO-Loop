@@ -61,12 +61,33 @@ add_executable(loop_detector_node
   src/loop_detector_node.cpp
   src/KeyframeManager.cpp
   src/utils/HashRegObj.cpp
+  src/utils/FEC.cpp
   src/utils/Hlp.cpp
   src/utils/patchworkpp.cpp
   ${gtsam_opti_sources}
 )
 add_dependencies(loop_detector_node ${catkin_EXPORTED_TARGETS})
 target_link_libraries(loop_detector_node
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  gtsam
+  yaml-cpp
+  small_gicp
+  ${OpenMP_CXX_FLAGS}
+)
+
+# Online trunk extraction test node for rosbag play.
+add_executable(online_trunk_test
+  test/online_trunk_test.cpp
+  src/KeyframeManager.cpp
+  src/utils/HashRegObj.cpp
+  src/utils/FEC.cpp
+  src/utils/Hlp.cpp
+  src/utils/patchworkpp.cpp
+)
+add_dependencies(online_trunk_test ${catkin_EXPORTED_TARGETS})
+target_link_libraries(online_trunk_test
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
   ${OpenCV_LIBRARIES}

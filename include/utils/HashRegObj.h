@@ -57,6 +57,13 @@ void pca_trunk_filter(const std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> &cl
                       double verticality_threshold,
                       double min_height);
 
+// Merge nearby trunk clusters that likely belong to the same tree
+void merge_trunk_clusters(std::vector<Cluster> &trunk_clusters,
+                          std::vector<Cluster> &discarded_clusters,
+                          double max_horizontal_dist,
+                          double min_z_overlap_ratio,
+                          double max_z_gap);
+
 // Transform point cloud
 void transform_point_cloud(const Eigen::Matrix4d &T,
                            pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud);

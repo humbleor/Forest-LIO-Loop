@@ -1,5 +1,6 @@
 #include "utils/Hlp.h"
 
+#include <type_traits>
 #include <yaml-cpp/yaml.h>
 
 void matrix_to_pair(Eigen::Matrix4f &trans_matrix,
@@ -66,13 +67,17 @@ void ReadParas(const std::string& file_path, ConfigSetting &config_setting)
     load("min_frame_votes", config_setting.lGrp_Ele_Min);
 
     // Verification thresholds
-    load("icp_threshold", config_setting.icp_threshold);
     load("dist_candi_frames_verify", config_setting.dist_candi_frames_verify);
     load("dis_geo_verify", config_setting.dis_geo_verify);
     load("vertex_diff_threshold", config_setting.vertex_diff_threshold);
 
     // centerSelection: 0 = use cluster centroid
     load("centerSelection", config_setting.centerSelection);
+
+    // Trunk cluster merging
+    load("trunk_merge_dist", config_setting.trunk_merge_dist);
+    load("trunk_merge_z_overlap", config_setting.trunk_merge_z_overlap);
+    load("trunk_merge_max_z_gap", config_setting.trunk_merge_max_z_gap);
 
     std::cout << GREEN << "[Config] Loaded from: " << file_path << RESET << std::endl;
 }

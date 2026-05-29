@@ -8,12 +8,7 @@ keyframe_min_time: 5.0         # Minimum time since last keyframe (s)
 # Point cloud preprocessing (Mid-360)
 accumulation_window_sec: 1.0   # Point cloud accumulation window (s)
 voxel_size: 0.1                # Voxel downsampling grid size (m)
-sor_mean_k: 50                 # SOR neighbor count
 sor_stddev: 1.0                # SOR standard deviation multiplier
-
-# Ground removal (patchwork++)
-patchwork_sensitivity: 0.5     # Patchwork++ sensitivity (0-1)
-ransac_ground_dist_thresh: 0.1 # RANSAC ground plane distance threshold (m)
 
 # Clustering + PCA
 cluster_tolerance: 0.3         # Euclidean clustering tolerance (m)
@@ -22,12 +17,14 @@ cluster_max_size: 50000        # Maximum cluster points
 pca_linearity_threshold: 0.7  # PCA linearity threshold
 pca_verticality_threshold: 0.7 # PCA verticality threshold (cos 30 deg)
 pca_min_height: 1.5            # Minimum trunk height (m)
+trunk_merge_dist: 0.4          # Max horizontal dist to merge trunk clusters (m)
+trunk_merge_z_overlap: 0.1     # Min height overlap ratio to merge trunk clusters
+trunk_merge_max_z_gap: 3.0     # Max Z gap between trunk segments to merge (m)
 
 # Loop search
 rough_dis_threshold: 0.1       # Side length relative tolerance
 candidate_num: 50              # Maximum candidate frames
 min_frame_votes: 2             # Minimum votes for candidate frame
-time_window_sec: 30            # Minimum time gap for loop candidate (s)
 
 # Triangle matching
 descriptor_near_num: 10        # KNN neighbor count for descriptor building
@@ -37,16 +34,9 @@ descriptor_len_diff: 0.1       # Exclude near-isosceles/equilateral threshold (m
 vertex_diff_threshold: 0.5     # Vertex attribute difference threshold
 dist_candi_frames_verify: 5    # Max vertex distance for loop candidate (m)
 
-# SVD verification
-svd_min_point_pairs: 5         # Minimum matching point pairs
-svd_scale_tolerance: 0.05      # Scale factor tolerance from 1.0
-svd_max_roll_pitch: 15.0       # Max roll/pitch angle (deg)
-svd_max_translation: 10.0      # Max translation magnitude (m)
-
 # ICP
 submap_window_size: 5          # Number of frames before/after for submap
 submap_voxel_size: 0.1         # Submap voxel downsampling (m)
-icp_max_iter: 30               # Maximum ICP iterations
 icp_corr_distance: 0.5         # ICP correspondence distance threshold (m)
 # GeoVerify: new weighted scoring (80% trunk + 20% non-trunk)
 # GeoVerify thresholds
@@ -56,4 +46,3 @@ fitness_threshold: 0.3       # ICP inlier ratio for loop confirmation
 
 # GTSAM PGO
 pgo_optimize_interval: 10.0    # Pose graph optimization interval (s)
-pgo_loop_edge_weight: 1.0      # Loop edge weight coefficient
