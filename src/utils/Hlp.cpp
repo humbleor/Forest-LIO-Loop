@@ -67,6 +67,8 @@ void ReadParas(const std::string& file_path, ConfigSetting &config_setting)
     load("min_frame_votes", config_setting.lGrp_Ele_Min);
 
     // Verification thresholds
+    load("icp_threshold", config_setting.icp_threshold);
+    load("fitness_threshold", config_setting.fitness_threshold);
     load("dist_candi_frames_verify", config_setting.dist_candi_frames_verify);
     load("dis_geo_verify", config_setting.dis_geo_verify);
     load("vertex_diff_threshold", config_setting.vertex_diff_threshold);
@@ -78,6 +80,15 @@ void ReadParas(const std::string& file_path, ConfigSetting &config_setting)
     load("trunk_merge_dist", config_setting.trunk_merge_dist);
     load("trunk_merge_z_overlap", config_setting.trunk_merge_z_overlap);
     load("trunk_merge_max_z_gap", config_setting.trunk_merge_max_z_gap);
+
+    // Point cloud preprocessing
+    load("accumulation_window_sec", config_setting.accumulation_window_sec);
+    load("voxel_size", config_setting.voxel_size);
+
+    // ICP submap
+    load("submap_window_size", config_setting.submap_window_size);
+    load("submap_voxel_size", config_setting.submap_voxel_size);
+    load("icp_corr_distance", config_setting.icp_corr_distance);
 
     std::cout << GREEN << "[Config] Loaded from: " << file_path << RESET << std::endl;
 }

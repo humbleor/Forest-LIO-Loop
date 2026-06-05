@@ -24,6 +24,7 @@ typedef struct ConfigSetting {
 	double rough_dis_threshold = 0.1;
 	double vertex_diff_threshold = 0;
 	double icp_threshold = 0.15;
+	double fitness_threshold = 0.3;
 	double dist_candi_frames_verify = 2;
 	double dis_geo_verify = 3.0;
 	int lGrp_Ele_Min = 15;
@@ -46,6 +47,15 @@ typedef struct ConfigSetting {
 	double trunk_merge_dist = 0.4;     // max horizontal distance between cluster centers (m)
 	double trunk_merge_z_overlap = 0.1; // min height overlap ratio to merge
 	double trunk_merge_max_z_gap = 3.0; // max Z gap between cluster ranges (m)
+
+	// for point cloud preprocessing
+	double accumulation_window_sec = 0.5;
+	double voxel_size = 0.1;
+
+	// for ICP submap building
+	int submap_window_size = 5;
+	double submap_voxel_size = 0.1;
+	double icp_corr_distance = 0.5;
 
 } ConfigSetting;
 

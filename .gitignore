@@ -15,4 +15,4 @@ Makefile
 AGENTS.md
 CLAUDE.md
 
-loop_output.log
+*.log

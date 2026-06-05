@@ -412,6 +412,17 @@ void HashRegDescManager::GenTriDescs(const pcl::PointCloud<pcl::PointXYZI>::Ptr 
 
     patchworkpp_.estimateGround(sor_eigen);
     Eigen::MatrixX3f nonground_eigen = patchworkpp_.getNonground();
+    Eigen::MatrixX3f ground_eigen = patchworkpp_.getGround();
+
+    // Cache ground / non-ground clouds for external publishing
+    ground_cloud.reset(new pcl::PointCloud<pcl::PointXYZ>);
+    ground_cloud->resize(ground_eigen.rows());
+    for (int i = 0; i < ground_eigen.rows(); ++i)
+    {
+        ground_cloud->points[i].x = ground_eigen(i, 0);
+        ground_cloud->points[i].y = ground_eigen(i, 1);
+        ground_cloud->points[i].z = ground_eigen(i, 2);
+    }
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr nonground(new pcl::PointCloud<pcl::PointXYZ>);
     nonground->resize(nonground_eigen.rows());
@@ -421,6 +432,7 @@ void HashRegDescManager::GenTriDescs(const pcl::PointCloud<pcl::PointXYZI>::Ptr 
         nonground->points[i].y = nonground_eigen(i, 1);
         nonground->points[i].z = nonground_eigen(i, 2);
     }
+    nonground_cloud = nonground;
 
     // 4. Euclidean clustering (on non-ground points)
     std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> cluster_points;
@@ -627,7 +639,7 @@ void HashRegDescManager::candidate_frames_selector(const FrameInfo &curr_frame,
                                          (double)position.y + 0.5,
                                          (double)position.z + 0.5);
 
-            if ((src_std.side_length_ - voxel_center).norm() < 1.5)
+            if ((src_std.side_length_ - voxel_center).norm() < 15.0)
             {
                 auto iter = data_base_.find(position);
                 if (iter == data_base_.end()) { hash_miss++; continue; }

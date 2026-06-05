@@ -87,6 +87,10 @@ public:
     std::vector<Cluster> obj_clusters;
     std::vector<Cluster> discarded_clusters;
 
+    // Ground / non-ground clouds from PatchWork++ (set by GenTriDescs)
+    pcl::PointCloud<pcl::PointXYZ>::Ptr ground_cloud;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr nonground_cloud;
+
     // Store the clusters per frame
     std::vector<std::vector<Cluster>> clusters_vec_;
     std::vector<std::vector<Cluster>> discarded_clusters_vec_;
